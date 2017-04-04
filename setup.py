@@ -11,7 +11,7 @@ with open('LICENSE') as f:
 
 setup(
     name='zbinner',
-    version='0.1.0',
+    version='0.1.1',
     description='significance based binning optimisation',
     long_description=readme,
     author='Yacine Haddad',

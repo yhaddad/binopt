@@ -3,8 +3,7 @@
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator, NullLocator
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import (MaxNLocator, NullLocator, ScalarFormatter)
 import kde
 np.set_printoptions(precision=4)
 
@@ -167,7 +166,6 @@ class optimize_bin(binner_base):
                           max_n_ticks=5,
                           label='parameter_scan'):
         """Fit result displayed on matrix."""
-
         if self.nbins <= 2:
             return None
         tx = np.arange(self.range[0], self.range[1], 0.01)
