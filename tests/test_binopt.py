@@ -19,7 +19,7 @@ from binopt import cli
 
 
 
-class TestBinopt(unittest.TestCase):
+class test_binopt(unittest.TestCase):
 
     def setUp(self):
         pass
