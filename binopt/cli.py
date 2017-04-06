@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
+"""Clic interface."""
 
 import click
+from binopt import core as cbin
 
 
 @click.command()
-def main(args=None):
-    """Console script for binopt"""
-    click.echo("Replace this message by putting your code into "
-               "binopt.cli.main")
-    click.echo("See click documentation at http://click.pocoo.org/")
+@click.option('--shape', default=1, help='Number of greetings.')
+@click.option('--test',  prompt='Are you testing', default='y',
+              help='The person to greet.')
+def optimise(count, test):
+    """Simple program that greets NAME for a total of COUNT times."""
+    if test is 'y':
+        click.echo("you have these modules : %s" % ''.join(dir(cbin)))
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    optimise()
