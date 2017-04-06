@@ -5,7 +5,8 @@ import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MaxNLocator, NullLocator, ScalarFormatter)
-import kde
+import tools
+
 np.set_printoptions(precision=4)
 
 
@@ -114,10 +115,10 @@ class optimize_bin(binner_base):
         _bounds_ = np.array([self.range for i in range(self.nbins + 1)])
 
         if self.use_kde_density:
-            self.pdf_s = kde.gaussian_kde(
+            self.pdf_s = tools.gaussian_kde(
                                 self.X[self.y == 1],
                                 weights=self.sample_weights[self.y == 1])
-            self.pdf_b = kde.gaussian_kde(
+            self.pdf_b = tools.gaussian_kde(
                                 self.X[self.y == 0],
                                 weights=self.sample_weights[self.y == 0])
             self.result = optimize.minimize(self.cost_fun, x_init,

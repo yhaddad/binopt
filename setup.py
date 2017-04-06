@@ -11,12 +11,24 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    # TODO: put package requirements here
+    'scipy',
+    'numpy',
+    'matplotlib',
+    'pip>=8.1.2',
+    'bumpversion>=0.5.3',
+    'wheel>=0.29.0',
+    'watchdog>=0.8.3',
+    'flake8>=2.6.0',
+    'coverage>=4.1',
+    'Sphinx>=1.4.8',
+    'PyYAML>=3.11'
 ]
 
-test_requirements = [
-    # TODO: put package test requirements here
-]
+# test_requirements = [
+#     # TODO: put package test requirements here
+# ]
+
+test_requirements = requirements
 
 setup(
     name='binopt',
@@ -46,13 +58,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
     ],
     test_suite='tests',
     tests_require=test_requirements
