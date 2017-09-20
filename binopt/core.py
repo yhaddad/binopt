@@ -77,7 +77,7 @@ class optimize_bin(binner_base):
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg )
+            return self._fom_(ns_, nb_, breg=self.breg)
 
     def true_positive_width(self):
         return 0
@@ -93,7 +93,7 @@ class optimize_bin(binner_base):
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg = self.breg)
+            return self._fom_(ns_, nb_, breg=self.breg)
 
     def cost_fun(self, x, lower_bound=None, upper_bound=None):
         """Cost function."""
@@ -118,7 +118,7 @@ class optimize_bin(binner_base):
         else:
             return -np.sqrt((z**2).sum())
 
-    def fit(self, X, y, sample_weights=None, niter=3000, min_args={}):
+    def fit(self, X, y, sample_weights=None, method="TNC", min_args={}):
         """Fitting."""
         self.X = X
         self.y = y
@@ -127,9 +127,20 @@ class optimize_bin(binner_base):
         else:
             self.sample_weights = np.ones(X.shape[0])
 
-        self.x_init = np.linspace(self.range[0], self.range[1], self.nbins+1)
+        if self.x_init is None:
+            self.x_init = np.linspace(self.range[0],
+                                      self.range[1],
+                                      self.nbins+1)
         np.random.seed(555)
         _bounds_ = np.array([self.range for i in range(self.nbins + 1)])
+        self.cdf_b = tools.empirical_cdf(
+            self.X[self.y == 0],
+            weights=self.sample_weights[self.y == 0]
+        )
+        self.cdf_s = tools.empirical_cdf(
+            self.X[self.y == 1],
+            weights=self.sample_weights[self.y == 1]
+        )
 
         if self.use_kde_density:
             self.pdf_s = tools.gaussian_kde(
@@ -145,13 +156,35 @@ class optimize_bin(binner_base):
                                             method='Nelder-Mead')
             self.result.x = np.sort(self.result.x)
         else:
-            _ndj_ = nd.Jacobian(self.cost_fun)
-            _jac_ = lambda x: np.ndarray.flatten(_ndj_(x))
-            self.result = optimize.minimize(self.cost_fun, self.x_init,
-                                            method='TNC', bounds=_bounds_,
-                                            jac=_jac_,
-                                            options={'disp': True})
-            self.result.x = np.sort(self.result.x)
+            if "TNC" in method:
+                _ndj_ = nd.Jacobian(self.cost_fun)
+                _jac_ = lambda x: np.ndarray.flatten(_ndj_(x))
+                self.result = optimize.minimize(
+                    self.cost_fun, self.x_init,
+                    method='TNC', bounds=_bounds_,
+                    jac=_jac_,
+                    options={'disp': True}
+                )
+                self.x_init = self.result.x
+                self.result.x = np.sort(self.result.x)
+            if "differential_evolution":
+                self.result = optimize.differential_evolution(
+                    self.cost_fun,
+                    bounds=_bounds_,
+                    **min_args
+                )
+                self.x_init = self.result.x
+                self.result.x = np.sort(self.result.x)
+            if "Nelder-Mead" in method:
+                self.result = optimize.minimize(
+                    self.cost_fun, self.x_init,
+                    args=(min(self.range),
+                          max(self.range)),
+                    bounds=_bounds_,
+                    method='Nelder-Mead'
+                )
+                self.x_init = self.result.x
+                self.result.x = np.sort(self.result.x)
         return self.result
 
     def optimisation_monitoring_(self, fig=None):
