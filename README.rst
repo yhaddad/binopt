@@ -18,7 +18,9 @@ binopt
      :alt: Updates
 
 
-Categorisation of labeled data
+This package is aiming to categorize labeled data in terms of a global figure of merit. In high energy physics, categorization of collision data is done by maximizing the discovery significance.
+
+
 
 
 * Free software: GNU General Public License v3
@@ -37,4 +39,3 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
-
