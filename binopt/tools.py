@@ -3,6 +3,24 @@
 from scipy.spatial.distance import cdist
 from scipy import special
 import numpy as np
+import scipy.interpolate as interp
+
+
+class empirical_cdf(object):
+    """ Unbinned empirical cumulative function derived from a distribution """
+    def __init__(self, x, weights=None):
+        if weights is None:
+            weights = np.ones(x.shape[0])
+        self._data = np.column_stack([x, weights])
+        self._data = self._data[self._data[:, 0].argsort()]
+        x = self._data[:, 0]
+        y = self._data[:, 1].cumsum()/self._data[:, 1].sum()
+        self.fcn = interp.interp1d(x, y, bounds_error=False)
+
+    def fcn(self):
+        """ Return a scipy function """
+        return self.fcn
+
 
 
 class gaussian_kde(object):
