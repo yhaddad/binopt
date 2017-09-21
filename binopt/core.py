@@ -58,9 +58,33 @@ class optimize_bin(binner_base):
         elif method == "AMS2":
             c[(b) != 0] = s[(b) != 0]/np.sqrt((b)[(b) != 0])
         elif method == "AMS3":
-            c[(b != 0)] = np.sqrt(
-                2*((s+b+breg)[b != 0]*np.log(1+s[b != 0]/(b+breg)[b != 0])-s))
+            """
+            assert s >= 0
+            assert b >= 0
+            bReg = 10.
+            return math.sqrt(2 * ((s + b + bReg) *
+                             math.log(1 + s / (b + bReg)) - s))
+            """
+            _ta_ = (s + b + breg)
+            _tb_ = (1 + s / (b + breg))
+            c = np.sqrt(2*(_ta_ * np.log(_tb_) - s))
+            c[~np.isnan(c)] = 0
         return c
+
+    def binned_stats(self, x):
+        """Binned score."""
+        _bins_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
+        nb_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
+                              range=self.range,
+                              weights=self.sample_weights[self.y == 0])
+        ns_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
+                              range=self.range,
+                              weights=self.sample_weights[self.y == 1])
+
+        if nb_.shape != ns_.shape:
+            return 0
+        else:
+            return ns_, nb_
 
     def binned_score(self, x):
         """Binned score."""
