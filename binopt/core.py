@@ -45,55 +45,66 @@ class optimize_bin(binner_base):
         self.fix_upper = fix_upper
         self.fix_lower = fix_lower
         self.breg = 0
+        self.fom = "AMS3"
         self.use_kde_density = use_kde_density
         self.sample_weights = None
         self.scan = {"bounds": [], "cost": []}
 
-    def _fom_(self, s, b, breg=10):
+    def _fom_(self, s, b, breg=10, method="AMS2"):
         """Default figure-of-merit."""
         c = np.zeros(s.shape[0])
-        c[(s == 0) & (b == 0)] = 0
-        c[(s+b) != 0] = s[(s+b) != 0] / np.sqrt((s+b+breg)[(s+b) != 0])
+        if method == "AMS1":
+            c = np.zeros(s.shape[0]) - 1
+        elif method == "AMS2":
+            c[(b) != 0] = s[(b) != 0]/np.sqrt((b)[(b) != 0])
+        elif method == "AMS3":
+            c[(b != 0)] = np.sqrt(
+                2*((s+b+breg)[b != 0]*np.log(1+s[b != 0]/(b+breg)[b != 0])-s))
         return c
 
     def binned_score(self, x):
         """Binned score."""
-        nb_, _ = np.histogram(self.X[self.y == 0], bins=x, range=self.range,
+        _bins_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
+        nb_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
+                              range=self.range,
                               weights=self.sample_weights[self.y == 0])
-        ns_, _ = np.histogram(self.X[self.y == 1], bins=x, range=self.range,
+        ns_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
+                              range=self.range,
                               weights=self.sample_weights[self.y == 1])
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_)
+            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
 
     def binned_score_cdf(self, x):
+        _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
         ns_ = self.sample_weights[self.y == 1].sum()
-        ns_ *= np.array([self.cdf_s(x[i], x[i+1])
-                         for i in range(x.shape[0]-1)])
+        ns_ *= np.array([self.cdf_s(_bounds_[i], _bounds_[i+1])
+                         for i in range(_bounds_.shape[0]-1)])
         nb_ = self.sample_weights[self.y == 0].sum()
-        nb_ *= np.array([self.cdf_b(x[i], x[i+1])
-                         for i in range(x.shape[0]-1)])
+        nb_ *= np.array([self.cdf_b(_bounds_[i], _bounds_[i+1])
+                         for i in range(_bounds_.shape[0]-1)])
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg)
+            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
 
     def true_positive_width(self):
         return 0
 
     def binned_score_density(self, x):
         """Binned score after KDE estimation of the distributions."""
+        _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
         ns_ = self.sample_weights[self.y == 1].sum()
-        ns_ *= np.array([self.pdf_s.integrate_box_1d(x[i], x[i+1])
-                         for i in range(x.shape[0]-1)])
+        ns_ *= np.array([self.pdf_s.integrate_box_1d(_bounds_[i],_bounds_[i+1])
+                         for i in range(_bounds_.shape[0]-1)])
         nb_ = self.sample_weights[self.y == 0].sum()
-        nb_ *= np.array([self.pdf_b.integrate_box_1d(x[i], x[i+1])
-                         for i in range(x.shape[0]-1)])
+        nb_ *= np.array([self.pdf_b.integrate_box_1d(_bounds_[i], _bounds_[i+1])
+                         for i in range(_bounds_.shape[0]-1)])
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg)
+            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
 
     def cost_fun(self, x, lower_bound=None, upper_bound=None):
         """Cost function."""
@@ -118,21 +129,27 @@ class optimize_bin(binner_base):
         else:
             return -np.sqrt((z**2).sum())
 
-    def fit(self, X, y, sample_weights=None, method="TNC", min_args={}):
-        """Fitting."""
+    def fit(self, X, y, sample_weights=None, fom="AMS2", method="TNC", min_args={}):
+        """Fitting.
+        There figure of merits are supported for now :
+        AMS1
+
+        """
         self.X = X
         self.y = y
+        self.fom = fom
         if sample_weights is not None:
             self.sample_weights = sample_weights
         else:
             self.sample_weights = np.ones(X.shape[0])
 
         if self.x_init is None:
+            """ remove the fixed bounds """
             self.x_init = np.linspace(self.range[0],
                                       self.range[1],
-                                      self.nbins+1)
+                                      self.nbins+2)[1:-1]
         np.random.seed(555)
-        _bounds_ = np.array([self.range for i in range(self.nbins + 1)])
+        _bounds_ = np.array([self.range for i in range(self.nbins)])
         self.cdf_b = tools.empirical_cdf(
             self.X[self.y == 0],
             weights=self.sample_weights[self.y == 0]
