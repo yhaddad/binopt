@@ -6,6 +6,7 @@ from scipy import optimize
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MaxNLocator, NullLocator, ScalarFormatter)
 import tools
+from scipy.stats import norm
 import numdifftools as nd
 
 np.set_printoptions(precision=4)
@@ -48,7 +49,7 @@ class optimize_bin(binner_base):
         self.fom = "AMS3"
         self.use_kde_density = use_kde_density
         self.sample_weights = None
-        self.scan = {"bounds": [], "cost": []}
+        self.scan = np.ones([1, self.nbins+1])
 
     def _fom_(self, s, b, breg=10, method="AMS2"):
         """Default figure-of-merit."""
@@ -68,7 +69,7 @@ class optimize_bin(binner_base):
             _ta_ = (s + b + breg)
             _tb_ = (1 + s / (b + breg))
             c = np.sqrt(2*(_ta_ * np.log(_tb_) - s))
-            c[~np.isnan(c)] = 0
+            c[np.isnan(c)] = 0
         return c
 
     def binned_stats(self, x):
@@ -84,9 +85,9 @@ class optimize_bin(binner_base):
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return ns_, nb_
+            return ns_, nb_, _bins_
 
-    def binned_score(self, x):
+    def binned_score(self, x, breg=None):
         """Binned score."""
         _bins_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
         nb_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
@@ -98,9 +99,12 @@ class optimize_bin(binner_base):
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            if breg is None:
+                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            else:
+                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
 
-    def binned_score_cdf(self, x):
+    def binned_score_cdf(self, x, breg=None):
         _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
         ns_ = self.sample_weights[self.y == 1].sum()
         ns_ *= np.array([self.cdf_s(_bounds_[i], _bounds_[i+1])
@@ -111,26 +115,48 @@ class optimize_bin(binner_base):
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            if breg is None:
+                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            else:
+                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
 
-    def true_positive_width(self):
-        return 0
+    def mass_sigma_effective(self, bounds, mass, X, W, nsig=1):
+        """
+        Input should contain a resonance of some sort.
+        """
+        _cats_ = np.digitize(X, bounds)
+        _sige_ = []
+        _cats_ = np.digitize(X, bounds)
+        _sige_ = []
+        print np.unique(_cats_)
+        for cid in range(bounds.shape[0]):
+            min_, max_ = tools.weighted_quantile(
+                mass[_cats_ == cid],
+                [norm.cdf(0, -nsig, 1), norm.cdf(0, nsig, 1)],
+                sample_weight=W[_cats_ == cid])
+            _sige_.append(np.abs(max_-min_)/2.0)
+        return np.array(_sige_)
 
-    def binned_score_density(self, x):
+    def binned_score_density(self, x, breg=None):
         """Binned score after KDE estimation of the distributions."""
         _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
         ns_ = self.sample_weights[self.y == 1].sum()
-        ns_ *= np.array([self.pdf_s.integrate_box_1d(_bounds_[i],_bounds_[i+1])
+        ns_ *= np.array([self.pdf_s.integrate_box_1d(_bounds_[i],
+                                                     _bounds_[i+1])
                          for i in range(_bounds_.shape[0]-1)])
         nb_ = self.sample_weights[self.y == 0].sum()
-        nb_ *= np.array([self.pdf_b.integrate_box_1d(_bounds_[i], _bounds_[i+1])
+        nb_ *= np.array([self.pdf_b.integrate_box_1d(_bounds_[i],
+                                                     _bounds_[i+1])
                          for i in range(_bounds_.shape[0]-1)])
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            if breg is None:
+                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+            else:
+                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
 
-    def cost_fun(self, x, lower_bound=None, upper_bound=None):
+    def cost_fun(self, x, breg=None, lower_bound=None, upper_bound=None):
         """Cost function."""
         z = None
         x = np.sort(x)
@@ -141,19 +167,26 @@ class optimize_bin(binner_base):
             x[x <= lower_bound] = lower_bound
         # print "     function : ", x, lower_bound, upper_bound
         if self.use_kde_density:
-            z = self.binned_score_density(x)
+            if breg is None:
+                z = self.binned_score_density(x, self.breg)
+            else:
+                z = self.binned_score_density(x, breg)
         else:
-            z = self.binned_score(x)
-
-        self.scan['bounds'].append(np.sort(x))
-        self.scan['cost'].append(z)
-
+            if breg is None:
+                z = self.binned_score(x, self.breg)
+            else:
+                z = self.binned_score(x, breg)
         if self.drop_last_bin:
+            _v_ = np.insert(np.sort(x), 0, [-np.sqrt((z[1:]**2).sum())])
+            self.scan = np.insert(self.scan, 0, _v_, axis=0)
             return -np.sqrt((z[1:]**2).sum())
         else:
+            _v_ = np.insert(np.sort(x), 0, -np.sqrt((z**2).sum()))
+            self.scan = np.insert(self.scan, 0, _v_, axis=0)
             return -np.sqrt((z**2).sum())
 
-    def fit(self, X, y, sample_weights=None, fom="AMS2", method="TNC", min_args={}):
+    def fit(self, X, y, sample_weights=None, fom="AMS2",
+            method="TNC", breg=None, min_args={}):
         """Fitting.
         There figure of merits are supported for now :
         AMS1
@@ -162,6 +195,8 @@ class optimize_bin(binner_base):
         self.X = X
         self.y = y
         self.fom = fom
+        self.breg = breg
+
         if sample_weights is not None:
             self.sample_weights = sample_weights
         else:
@@ -226,27 +261,29 @@ class optimize_bin(binner_base):
                 )
                 self.x_init = self.result.x
                 self.result.x = np.sort(self.result.x)
+            if "iminuit" in method:
+                print "blah"
         return self.result
 
-    def optimisation_monitoring_(self, fig=None):
-        """Motinotor the health of the fit."""
+    def optimisation_monitoring(self, fig=None):
+        """ Monitoring the convergence of the fit"""
         if fig is None:
-            fig = plt.figure(figsize=(10, 2))
-
+            fig = plt.figure(figsize=(15, 5))
         plt.subplots_adjust(hspace=0.001)
         ax1 = plt.subplot(211)
-        for ix in range(self.result.x.shape[0]):
-            ax1.plot(range(np.array(self.scan['bounds']).shape[0]),
-                     np.array(self.scan['bounds'])[:, ix])
+        self.scan = np.matrix(self.scan)
+        self.scan = self.scan[np.argsort(self.scan.A[:, 0])[::-1]]
+        for ix in range(1, self.nbins):
+            ax1.plot(range(self.scan.shape[0]), self.scan[:, ix])
 
         ax1.set_ylabel('bin boundaries')
         ax2 = plt.subplot(212)
-        ax2.plot(range(np.array(self.scan['bounds']).shape[0]),
-                 np.sort(-np.array(self.scan['cost'])))
+        ax2.plot(range(self.scan.shape[0]), self.scan[:, 0])
         ax2.set_ylabel('cost function')
-        ax2.set_xlabel('optimisation steps')
+        ax2.set_xlabel('optimization steps')
         xticklabels = ax1.get_xticklabels()
         plt.setp(xticklabels, visible=False)
+        plt.tight_layout()
         return fig
 
     def parameter_scan_2d(self, fig=None,
