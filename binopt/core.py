@@ -288,15 +288,15 @@ class optimize_bin(binner_base):
 
     def parameter_scan_2d(self, fig=None,
                           title_fmt=".2f",
-                          max_n_ticks=5,
+                          max_n_ticks=5, steps=0.01,
                           label='parameter_scan'):
         """Fit result displayed on matrix."""
-        if self.nbins <= 2:
+        if self.nbins <= 1:
             return None
-        tx = np.arange(self.range[0], self.range[1], 0.01)
-        ty = np.arange(self.range[0], self.range[1], 0.01)
+        tx = np.arange(self.range[0], self.range[1], steps)
+        ty = np.arange(self.range[0], self.range[1], steps)
         xx, yy = np.meshgrid(tx, ty)
-        K = self.nbins - 1
+        K = self.nbins
         factor = 2.0
         lbdim = 0.5 * factor  # size of left/bottom margin
         trdim = 0.2 * factor  # size of top/right margin
@@ -318,23 +318,22 @@ class optimize_bin(binner_base):
                             right=tr, top=tr,
                             wspace=whspace, hspace=whspace)
 
-        for i in range(1, self.nbins):
-            ax = axes[i-1, i-1]
+        for i in range(0, self.nbins):
+            ax = axes[i, i]
 
             def _fun_1d(x):
                 """Fn 1d."""
-                _param_ = [self.result.x[k] for k in range(self.nbins+1)]
+                _param_ = [ix for ix in self.result.x]
                 _param_[i] = x
-                _param_[0] = self.range[0]
-                _param_[-1] = self.range[1]
                 return self.cost_fun(np.array(_param_))
-
             vec_fun_1d = np.vectorize(_fun_1d)
             z1d = vec_fun_1d(tx)
+
             ax.plot(tx, z1d)
-            ax.axvline(x=self.result.x[i], color='red', ls="--")
+            ax.axvline(x=self.result.x[i], color='blue', ls="--")
             ax.set_xlim(self.range)
-            if i > 1:
+            if i > 0:
+                print "[debug i>0 ] i = ", i
                 ax.set_yticklabels([])
             if max_n_ticks == 0:
                 ax.xaxis.set_major_locator(NullLocator())
@@ -342,7 +341,8 @@ class optimize_bin(binner_base):
                 ax.xaxis.set_major_locator(
                     MaxNLocator(max_n_ticks, prune="lower")
                 )
-            if i < self.nbins - 1:
+            if i < self.nbins-1 :
+                print "[debug i<nbins] i = ", i
                 ax.set_xticklabels([])
             else:
                 [l.set_rotation(90) for l in ax.get_xticklabels()]
@@ -350,15 +350,15 @@ class optimize_bin(binner_base):
                     ScalarFormatter(useMathText=True)
                 )
                 ax.xaxis.set_label_text("$x_%i$" % i)
-            if i == 1:
+            if i == 0:
                 [l.set_rotation(0) for l in ax.get_yticklabels()]
                 ax.yaxis.set_major_formatter(
                     ScalarFormatter(useMathText=True)
                 )
                 ax.yaxis.set_label_text("cost function")
 
-            for j in range(1, self.nbins):
-                ax = axes[i-1, j-1]
+            for j in range(0, self.nbins):
+                ax = axes[i, j]
                 if j > i:
                     ax.set_frame_on(False)
                     ax.set_xticks([])
@@ -369,22 +369,22 @@ class optimize_bin(binner_base):
 
                 def _fun_(x, y):
                     """Fn 2D."""
-                    _param_ = [self.result.x[k] for k in range(self.nbins+1)]
+                    _param_ = [ix for ix in self.result.x]
                     _param_[i] = x
                     _param_[j] = y
-                    _param_[0] = self.range[0]
-                    _param_[-1] = self.range[1]
                     return self.cost_fun(np.array(_param_))
 
                 vec_fun_ = np.vectorize(_fun_)
-                zz = vec_fun_(xx, yy)
+                zz = vec_fun_(xx, yy )
                 levels = np.linspace(zz.min(), 0.95*zz.min(), 5)
                 ax.contourf(xx, yy, zz,
                             np.linspace(zz.min(), 0.85*zz.min(), 20),
                             cmap=plt.cm.Spectral_r)
-                C = ax.contour(xx, yy, zz, levels,
-                               linewidth=0.1, colors='black')
-                ax.clabel(C, inline=1, fontsize=5)
+                # C = ax.contour(xx, yy, zz, levels,
+                               # linewidth=0.1, colors='black')
+                # ax.clabel(C, inline=1, fontsize=5)
+                print "[Contour: ] [%i,%i] [%1.3f,%1.3f]" % (i, j,self.result.x[j], self.result.x[i])
+                print "[DEBUG: results ]", self.result.x
                 ax.plot(self.result.x[j], self.result.x[i],
                         'ro', label='best fit')
                 ax.set_xlim(self.range)
@@ -407,7 +407,7 @@ class optimize_bin(binner_base):
                         ScalarFormatter(useMathText=True)
                     )
                     ax.xaxis.set_label_text("$x_%i$" % j)
-                if j > 1:
+                if j > 0:
                     ax.set_yticklabels([])
                 else:
                     [l.set_rotation(0) for l in ax.get_yticklabels()]
