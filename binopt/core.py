@@ -78,14 +78,21 @@ class optimize_bin(binner_base):
         nb_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
                               range=self.range,
                               weights=self.sample_weights[self.y == 0])
+        ws2_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
+                               range=self.range,
+                               weights=self.sample_weights[self.y == 0]**2)
         ns_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
                               range=self.range,
                               weights=self.sample_weights[self.y == 1])
-
+        wb2_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
+                               range=self.range,
+                               weights=self.sample_weights[self.y == 1]**2)
+        error_ns_ = np.sqrt(ws2_)
+        error_nb_ = np.sqrt(wb2_)
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return ns_, nb_, _bins_
+            return ns_, nb_, error_ns_, error_nb_, _bins_
 
     def binned_score(self, x, breg=None):
         """Binned score."""
@@ -96,13 +103,17 @@ class optimize_bin(binner_base):
         ns_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
                               range=self.range,
                               weights=self.sample_weights[self.y == 1])
+        wb2_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
+                               range=self.range,
+                               weights=self.sample_weights[self.y == 1]**2)
+        error_nb_ = np.sqrt(wb2_)
         if nb_.shape != ns_.shape:
             return 0
         else:
             if breg is None:
-                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+                return self._fom_(ns_, nb_, breg=error_nb_**2, method=self.fom)
             else:
-                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
+                return self._fom_(ns_, nb_, breg=error_nb_**2, method=self.fom)
 
     def binned_score_cdf(self, x, breg=None):
         _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
@@ -178,11 +189,11 @@ class optimize_bin(binner_base):
                 z = self.binned_score(x, breg)
         if self.drop_last_bin:
             _v_ = np.insert(np.sort(x), 0, [-np.sqrt((z[1:]**2).sum())])
-            self.scan = np.insert(self.scan, 0, _v_, axis=0)
+            # self.scan = np.insert(self.scan, 0, _v_, axis=0)
             return -np.sqrt((z[1:]**2).sum())
         else:
             _v_ = np.insert(np.sort(x), 0, -np.sqrt((z**2).sum()))
-            self.scan = np.insert(self.scan, 0, _v_, axis=0)
+            # self.scan = np.insert(self.scan, 0, _v_, axis=0)
             return -np.sqrt((z**2).sum())
 
     def fit(self, X, y, sample_weights=None, fom="AMS2",
@@ -333,7 +344,6 @@ class optimize_bin(binner_base):
             ax.axvline(x=self.result.x[i], color='blue', ls="--")
             ax.set_xlim(self.range)
             if i > 0:
-                print "[debug i>0 ] i = ", i
                 ax.set_yticklabels([])
             if max_n_ticks == 0:
                 ax.xaxis.set_major_locator(NullLocator())
@@ -341,8 +351,7 @@ class optimize_bin(binner_base):
                 ax.xaxis.set_major_locator(
                     MaxNLocator(max_n_ticks, prune="lower")
                 )
-            if i < self.nbins-1 :
-                print "[debug i<nbins] i = ", i
+            if i < (self.nbins - 1):
                 ax.set_xticklabels([])
             else:
                 [l.set_rotation(90) for l in ax.get_xticklabels()]
@@ -383,8 +392,6 @@ class optimize_bin(binner_base):
                 # C = ax.contour(xx, yy, zz, levels,
                                # linewidth=0.1, colors='black')
                 # ax.clabel(C, inline=1, fontsize=5)
-                print "[Contour: ] [%i,%i] [%1.3f,%1.3f]" % (i, j,self.result.x[j], self.result.x[i])
-                print "[DEBUG: results ]", self.result.x
                 ax.plot(self.result.x[j], self.result.x[i],
                         'ro', label='best fit')
                 ax.set_xlim(self.range)
