@@ -6,6 +6,14 @@ import numpy as np
 import scipy.interpolate as interp
 
 
+def divide(a, b):
+    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        c = np.true_divide(a, b)
+        c[~ np.isfinite(c)] = 0
+    return c
+
+
 class empirical_cdf(object):
     """ Unbinned empirical cumulative function derived from a distribution """
     def __init__(self, x, weights=None):

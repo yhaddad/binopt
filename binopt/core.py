@@ -51,25 +51,34 @@ class optimize_bin(binner_base):
         self.sample_weights = None
         self.scan = np.ones([1, self.nbins+1])
 
-    def _fom_(self, s, b, breg=10, method="AMS2"):
-        """Default figure-of-merit."""
-        c = np.zeros(s.shape[0])
-        if method == "AMS1":
-            c = np.zeros(s.shape[0]) - 1
-        elif method == "AMS2":
-            c[(b) != 0] = s[(b) != 0]/np.sqrt((b)[(b) != 0])
-        elif method == "AMS3":
-            """
-            assert s >= 0
-            assert b >= 0
-            bReg = 10.
-            return math.sqrt(2 * ((s + b + bReg) *
-                             math.log(1 + s / (b + bReg)) - s))
-            """
-            _ta_ = (s + b + breg)
-            _tb_ = (1 + s / (b + breg))
-            c = np.sqrt(2*(_ta_ * np.log(_tb_) - s))
-            c[np.isnan(c)] = 0
+    def _fom_(self, s, b, berr=0, method="AMS2"):
+        """
+        Builtin figure of metrits for boundary optimisation.
+        4 methods are currently implemented :
+        - AMS1 : $Z_0=s/\sqrt{s+b+\sigma_b^2}$
+        - AMS2 : $Z_0=s/\sqrt{b+\sigma_b^2}$
+        - AMS3 : $Z_0=\sqrt{2(s+b+sigma_b^2)\ln(1+\frac{s}{b+\sigma_b^2})-s}$
+                 the $\sigma_b$ should be set to 0 for physical results
+        - AMS4 : Significance as defined in [0] but including systematic
+                 uncertainty on b
+        [0] Eur. Phys. J. C (2011) 71: 1554 DOI 10.1140/epjc/s10052-011-1554-0
+        """
+        c = np.zeros(b.shape[0])
+        with np.errstate(divide='ignore', invalid='ignore'):
+            if method == "AMS1":
+                c = tools.divide(s, np.sqrt(s + b + berr**2))
+            elif method == "AMS2":
+                c = tools.divide(s, np.sqrt(b + berr**2))
+            elif method == "AMS3":
+                term_a = (s + b + berr**2)
+                term_b = (1 + tools.divide(s, (b + berr**2)))
+                c = np.sqrt(2*(term_a * np.log(term_b) - s))
+            elif method == "AMS4":
+                term_a = tools.divide((s+b)*(b+berr**2), ((s+b)*berr**2)+b**2)
+                term_b = 1 + tools.divide(s*berr**2, b*(b+berr**2))
+                rad = (s+b)*np.log(term_a)-tools.divide(b**2, berr**2)*np.log(term_b)
+                c = np.sqrt(2*rad)
+            c[~ np.isfinite(c)] = 0
         return c
 
     def binned_stats(self, x):
@@ -78,21 +87,17 @@ class optimize_bin(binner_base):
         nb_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
                               range=self.range,
                               weights=self.sample_weights[self.y == 0])
-        ws2_, _ = np.histogram(self.X[self.y == 0], bins=_bins_,
-                               range=self.range,
-                               weights=self.sample_weights[self.y == 0]**2)
         ns_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
                               range=self.range,
                               weights=self.sample_weights[self.y == 1])
         wb2_, _ = np.histogram(self.X[self.y == 1], bins=_bins_,
                                range=self.range,
                                weights=self.sample_weights[self.y == 1]**2)
-        error_ns_ = np.sqrt(ws2_)
         error_nb_ = np.sqrt(wb2_)
         if nb_.shape != ns_.shape:
             return 0
         else:
-            return ns_, nb_, error_ns_, error_nb_, _bins_
+            return ns_, nb_, error_nb_, _bins_
 
     def binned_score(self, x, breg=None):
         """Binned score."""
@@ -111,9 +116,9 @@ class optimize_bin(binner_base):
             return 0
         else:
             if breg is None:
-                return self._fom_(ns_, nb_, breg=error_nb_**2, method=self.fom)
+                return self._fom_(ns_, nb_, berr=error_nb_, method=self.fom)
             else:
-                return self._fom_(ns_, nb_, breg=error_nb_**2, method=self.fom)
+                return self._fom_(ns_, nb_, berr=breg, method=self.fom)
 
     def binned_score_cdf(self, x, breg=None):
         _bounds_ = np.sort(np.insert(x, [0, x.shape[0]], [self.range]))
@@ -127,9 +132,9 @@ class optimize_bin(binner_base):
             return 0
         else:
             if breg is None:
-                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+                return self._fom_(ns_, nb_, berr=self.breg, method=self.fom)
             else:
-                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
+                return self._fom_(ns_, nb_, berr=breg, method=self.fom)
 
     def mass_sigma_effective(self, bounds, mass, X, W, nsig=1):
         """
@@ -163,9 +168,9 @@ class optimize_bin(binner_base):
             return 0
         else:
             if breg is None:
-                return self._fom_(ns_, nb_, breg=self.breg, method=self.fom)
+                return self._fom_(ns_, nb_, berr=self.breg, method=self.fom)
             else:
-                return self._fom_(ns_, nb_, breg=breg, method=self.fom)
+                return self._fom_(ns_, nb_, berr=breg, method=self.fom)
 
     def cost_fun(self, x, breg=None, lower_bound=None, upper_bound=None):
         """Cost function."""
@@ -297,7 +302,7 @@ class optimize_bin(binner_base):
         plt.tight_layout()
         return fig
 
-    def parameter_scan_2d(self, fig=None,
+    def boundary_scan_2d(self, fig=None,
                           title_fmt=".2f",
                           max_n_ticks=5, steps=0.01,
                           label='parameter_scan'):
@@ -340,11 +345,12 @@ class optimize_bin(binner_base):
             vec_fun_1d = np.vectorize(_fun_1d)
             z1d = vec_fun_1d(tx)
 
-            ax.plot(tx, z1d)
+            ax.plot(tx, z1d, 'red')
             ax.axvline(x=self.result.x[i], color='blue', ls="--")
             ax.set_xlim(self.range)
-            if i > 0:
-                ax.set_yticklabels([])
+            ax.yaxis.tick_right()
+            # if i > 0:
+                # ax.set_yticklabels([])
             if max_n_ticks == 0:
                 ax.xaxis.set_major_locator(NullLocator())
             else:
@@ -381,16 +387,19 @@ class optimize_bin(binner_base):
                     _param_ = [ix for ix in self.result.x]
                     _param_[i] = x
                     _param_[j] = y
-                    return self.cost_fun(np.array(_param_))
+                    if x != y:
+                        return self.cost_fun(np.array(_param_))
+                    else:
+                        return 0.0
 
                 vec_fun_ = np.vectorize(_fun_)
-                zz = vec_fun_(xx, yy )
-                levels = np.linspace(zz.min(), 0.95*zz.min(), 5)
+                zz = vec_fun_(xx, yy)
+                levels = np.linspace(zz.min(), 0.7*zz.min(), 5)
                 ax.contourf(xx, yy, zz,
-                            np.linspace(zz.min(), 0.85*zz.min(), 20),
+                            np.linspace(zz.min(), 0.7*zz.min(), 20),
                             cmap=plt.cm.Spectral_r)
                 # C = ax.contour(xx, yy, zz, levels,
-                               # linewidth=0.1, colors='black')
+                #                 linewidth=0.1, colors='black')
                 # ax.clabel(C, inline=1, fontsize=5)
                 ax.plot(self.result.x[j], self.result.x[i],
                         'ro', label='best fit')
