@@ -142,8 +142,6 @@ class optimize_bin(binner_base):
         """
         _cats_ = np.digitize(X, bounds)
         _sige_ = []
-        _cats_ = np.digitize(X, bounds)
-        _sige_ = []
         print np.unique(_cats_)
         for cid in range(bounds.shape[0]):
             min_, max_ = tools.weighted_quantile(
@@ -164,11 +162,12 @@ class optimize_bin(binner_base):
         nb_ *= np.array([self.pdf_b.integrate_box_1d(_bounds_[i],
                                                      _bounds_[i+1])
                          for i in range(_bounds_.shape[0]-1)])
+        error_nb_ = np.sqrt(nb_)
         if nb_.shape != ns_.shape:
             return 0
         else:
             if breg is None:
-                return self._fom_(ns_, nb_, berr=self.breg, method=self.fom)
+                return self._fom_(ns_, nb_, berr=error_nb_, method=self.fom)
             else:
                 return self._fom_(ns_, nb_, berr=breg, method=self.fom)
 
@@ -184,21 +183,19 @@ class optimize_bin(binner_base):
         # print "     function : ", x, lower_bound, upper_bound
         if self.use_kde_density:
             if breg is None:
-                z = self.binned_score_density(x, self.breg)
+                z = self.binned_score_density(x)
             else:
                 z = self.binned_score_density(x, breg)
         else:
             if breg is None:
-                z = self.binned_score(x, self.breg)
+                z = self.binned_score(x)
             else:
                 z = self.binned_score(x, breg)
         if self.drop_last_bin:
-            _v_ = np.insert(np.sort(x), 0, [-np.sqrt((z[1:]**2).sum())])
-            # self.scan = np.insert(self.scan, 0, _v_, axis=0)
+            # _v_ = np.insert(np.sort(x), 0, [-np.sqrt((z[1:]**2).sum())])
             return -np.sqrt((z[1:]**2).sum())
         else:
-            _v_ = np.insert(np.sort(x), 0, -np.sqrt((z**2).sum()))
-            # self.scan = np.insert(self.scan, 0, _v_, axis=0)
+            # _v_ = np.insert(np.sort(x), 0, -np.sqrt((z**2).sum()))
             return -np.sqrt((z**2).sum())
 
     def fit(self, X, y, sample_weights=None, fom="AMS2",
@@ -241,44 +238,38 @@ class optimize_bin(binner_base):
             self.pdf_b = tools.gaussian_kde(
                                 self.X[self.y == 0],
                                 weights=self.sample_weights[self.y == 0])
-            self.result = optimize.minimize(self.cost_fun, self.x_init,
-                                            args=(min(self.range),
-                                                  max(self.range)),
-                                            bounds=_bounds_,
-                                            method='Nelder-Mead')
+
+        if "TNC" in method:
+            _ndj_ = nd.Jacobian(self.cost_fun)
+            _jac_ = lambda x: np.ndarray.flatten(_ndj_(x))
+            self.result = optimize.minimize(
+                self.cost_fun, self.x_init,
+                method='TNC', bounds=_bounds_,
+                jac=_jac_,
+                options={'disp': True}
+            )
+            self.x_init = self.result.x
             self.result.x = np.sort(self.result.x)
-        else:
-            if "TNC" in method:
-                _ndj_ = nd.Jacobian(self.cost_fun)
-                _jac_ = lambda x: np.ndarray.flatten(_ndj_(x))
-                self.result = optimize.minimize(
-                    self.cost_fun, self.x_init,
-                    method='TNC', bounds=_bounds_,
-                    jac=_jac_,
-                    options={'disp': True}
-                )
-                self.x_init = self.result.x
-                self.result.x = np.sort(self.result.x)
-            if "differential_evolution":
-                self.result = optimize.differential_evolution(
-                    self.cost_fun,
-                    bounds=_bounds_,
-                    **min_args
-                )
-                self.x_init = self.result.x
-                self.result.x = np.sort(self.result.x)
-            if "Nelder-Mead" in method:
-                self.result = optimize.minimize(
-                    self.cost_fun, self.x_init,
-                    args=(min(self.range),
-                          max(self.range)),
-                    bounds=_bounds_,
-                    method='Nelder-Mead'
-                )
-                self.x_init = self.result.x
-                self.result.x = np.sort(self.result.x)
-            if "iminuit" in method:
-                print "blah"
+        if "differential_evolution":
+            self.result = optimize.differential_evolution(
+                self.cost_fun,
+                bounds=_bounds_,
+                **min_args
+            )
+            self.x_init = self.result.x
+            self.result.x = np.sort(self.result.x)
+        if "Nelder-Mead" in method:
+            self.result = optimize.minimize(
+                self.cost_fun, self.x_init,
+                args=(min(self.range),
+                      max(self.range)),
+                bounds=_bounds_,
+                method='Nelder-Mead'
+            )
+            self.x_init = self.result.x
+            self.result.x = np.sort(self.result.x)
+        if "iminuit" in method:
+            print "blah"
         return self.result
 
     def optimisation_monitoring(self, fig=None):
