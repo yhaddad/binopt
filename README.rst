@@ -6,16 +6,22 @@ binopt
 .. image:: https://img.shields.io/pypi/v/binopt.svg
         :target: https://pypi.python.org/pypi/binopt
 
+
 .. image:: https://img.shields.io/travis/yhaddad/binopt.svg
         :target: https://travis-ci.org/yhaddad/binopt
-
+        
+        
 .. image:: https://readthedocs.org/projects/binopt/badge/?version=latest
         :target: https://binopt.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
-
+        
+        
 .. image:: https://pyup.io/repos/github/yhaddad/binopt/shield.svg
      :target: https://pyup.io/repos/github/yhaddad/binopt/
      :alt: Updates
+     
+.. image:: https://zenodo.org/badge/86721620.svg
+   :target: https://zenodo.org/badge/latestdoi/86721620
 
 
 This package is aiming to categorize labeled data in terms of a global figure of merit. In high energy physics, categorization of collision data is done by maximizing the discovery significance.
