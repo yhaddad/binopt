@@ -4,24 +4,40 @@ binopt package
 Submodules
 ----------
 
-binopt.cli module
------------------
+binopt\.cli module
+------------------
 
 .. automodule:: binopt.cli
     :members:
     :undoc-members:
     :show-inheritance:
 
-binopt.core module
-------------------
+binopt\.core module
+-------------------
 
 .. automodule:: binopt.core
     :members:
     :undoc-members:
     :show-inheritance:
 
-binopt.tools module
--------------------
+binopt\.stats module
+--------------------
+
+.. automodule:: binopt.stats
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+binopt\.tfbinner module
+-----------------------
+
+.. automodule:: binopt.tfbinner
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+binopt\.tools module
+--------------------
 
 .. automodule:: binopt.tools
     :members:
