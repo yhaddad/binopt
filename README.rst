@@ -29,14 +29,15 @@ This package is aiming to categorize labeled data in terms of a global figure of
 installation
 ************
 Install like any other python package::
-
-pip install binopt --user
+    
+    pip install binopt --user
 
 or::
+    
+    git clone git@github.com:yhaddad/binopt.git
+    cd binopt/
+    pip install .
 
-git clone git@github.com:yhaddad/binopt.git
-cd binopt/
-pip install .
 
 Getting started
 ***************
