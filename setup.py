@@ -32,7 +32,7 @@ test_requirements = requirements
 
 setup(
     name='binopt',
-    version='0.1.0',
+    version='0.2.0',
     description="Categorisation of labeled data",
     long_description=readme + '\n\n' + history,
     author="Yacine Haddad",
