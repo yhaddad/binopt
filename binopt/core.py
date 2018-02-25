@@ -387,7 +387,7 @@ class optimize_bin(binner_base):
                 zz = vec_fun_(xx, yy)
                 levels = np.linspace(zz.min(), 0.7*zz.min(), 5)
                 ax.contourf(xx, yy, zz,
-                            np.linspace(zz.min(), 0.7*zz.min(), 20),
+                            np.linspace(zz.min(), 0.8*zz.min(), 20),
                             cmap=plt.cm.Spectral_r)
                 # C = ax.contour(xx, yy, zz, levels,
                 #                 linewidth=0.1, colors='black')
