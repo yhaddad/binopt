@@ -6,7 +6,7 @@ tox==3.13.1
 flake8==3.6.0
 tox==3.13.1
 numpy==1.15.4
-coverage==4.5.2
+coverage==5.0.1
 tox==3.13.1
 cryptography==2.4.2
 Sphinx==2.1.2
