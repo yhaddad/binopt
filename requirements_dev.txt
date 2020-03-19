@@ -10,4 +10,4 @@ coverage==4.5.2
 tox==3.13.1
 cryptography==2.8
 Sphinx==2.1.2
-PyYAML==5.1
+PyYAML==5.3.1
