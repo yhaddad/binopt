@@ -77,3 +77,4 @@ Getting started
 
 * Free software: GNU General Public License v3
 * Documentation: https://binopt.readthedocs.io.
+* Dependencies scanned by PyUp.io
