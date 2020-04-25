@@ -8,6 +8,6 @@ tox==3.13.1
 numpy==1.15.4
 coverage==4.5.2
 tox==3.13.1
-cryptography==2.8
 Sphinx==3.0.2
+cryptography==2.9.2
 PyYAML==5.1
